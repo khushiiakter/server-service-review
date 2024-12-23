@@ -47,6 +47,20 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/featured-services", async (req, res) => {
+      try {
+        const topService = await serviceCollection
+          .find()
+          .sort({ rating: -1 })
+          .limit(6)
+          .toArray();
+        res.send(topService);
+      } catch (error) {
+        console.error("Error fetching top-rated movies:", error);
+        res.status(500).send({ message: "Failed to fetch top-rated movies" });
+      }
+    });
+
     app.get("/services/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
