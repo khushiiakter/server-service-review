@@ -57,12 +57,52 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
+    app.get("/reviews", async (req, res) => {
+      const email = req.query.email;
+      const query = { applicant_email: email }
+      const result = await reviewsCollection.find(query).toArray();
+      res.send(result);
+    });
+    app.get("/reviews", async (req, res) => {
+      const { serviceId } = req.query;
+      const query = { serviceId: serviceId }
+      const result = await reviewsCollection.find(query).toArray();
+      res.send(result);
+    });
+    
 
     app.post("/reviews", async (req, res) =>{
       const {_id, ...review} = req.body;
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
     });
+
+    app.delete("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      
+      try{
+        const result = await reviewsCollection.deleteOne({ _id: new ObjectId(id)});
+       
+
+        if (result.deletedCount > 0) {
+          res.send({
+            success: true,
+            message: 'Review deleted successfully',
+            
+            deletedReview: result,
+          })
+        }else{
+          res.status(404).send({ success: false, message: 'Review not found'});
+
+        }
+      } catch (error) {
+        console.error('Error deleting movie:', error);
+        res.status(404).send({ success: false, message: 'Failed to delete review'});
+
+        
+      }
+    });
+
     
   } finally {
     // Ensures that the client will close when you finish/error
