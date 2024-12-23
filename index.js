@@ -8,7 +8,6 @@ require("dotenv").config();
 
 const port = process.env.PORT || 5000;
 
-
 // Td0wO6ICWQx3deDR
 // service_hunter
 
@@ -37,7 +36,9 @@ async function run() {
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
 
-    const serviceCollection = client.db("serviceReviews").collection("services");
+    const serviceCollection = client
+      .db("serviceReviews")
+      .collection("services");
     const reviewsCollection = client.db("serviceReviews").collection("reviews");
 
     app.get("/services", async (req, res) => {
@@ -53,57 +54,84 @@ async function run() {
       res.send(result);
     });
     app.get("/reviews", async (req, res) => {
-      const cursor = reviewsCollection.find();
+      const { serviceId, email } = req.query;
+      let query = {};
+      if (serviceId) {
+        query.serviceId = serviceId;
+      }
+      if (email) {
+        query.userEmail = email;
+      }
+      const cursor = reviewsCollection.find(query);
       const result = await cursor.toArray();
-      res.send(result);
-    });
-    app.get("/reviews", async (req, res) => {
-      const email = req.query.email;
-      const query = { applicant_email: email }
-      const result = await reviewsCollection.find(query).toArray();
-      res.send(result);
-    });
-    app.get("/reviews", async (req, res) => {
-      const { serviceId } = req.query;
-      const query = { serviceId: serviceId }
-      const result = await reviewsCollection.find(query).toArray();
       res.send(result);
     });
     
 
-    app.post("/reviews", async (req, res) =>{
-      const {_id, ...review} = req.body;
+    app.post("/reviews", async (req, res) => {
+      const { _id, ...review } = req.body;
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
     });
 
+    app.put("/reviews/:id", async (req, res) => {
+      const { id } = req.params;
+      const { reviewText, rating } = req.body;
+      if (!reviewText || rating == null) {
+        return res.status(400).send({
+          success: false,
+          message: "Review text and rating are required.",
+        });
+      }
+  
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          reviewText,
+          rating,
+        },
+      };
+  
+      const result = await reviewsCollection.updateOne(filter, updateDoc);
+  
+      if (result.modifiedCount === 0) {
+        return res.status(404).send({
+          success: false,
+          message: "Review not found or no changes made.",
+        });
+      }
+      res.send({ success: true, message: "Review updated successfully." });
+
+  
+    });
+
     app.delete("/reviews/:id", async (req, res) => {
       const id = req.params.id;
-      
-      try{
-        const result = await reviewsCollection.deleteOne({ _id: new ObjectId(id)});
-       
+
+      try {
+        const result = await reviewsCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
 
         if (result.deletedCount > 0) {
           res.send({
             success: true,
-            message: 'Review deleted successfully',
-            
-            deletedReview: result,
-          })
-        }else{
-          res.status(404).send({ success: false, message: 'Review not found'});
+            message: "Review deleted successfully",
 
+            deletedReview: result,
+          });
+        } else {
+          res.status(404).send({ success: false, message: "Review not found" });
         }
       } catch (error) {
-        console.error('Error deleting movie:', error);
-        res.status(404).send({ success: false, message: 'Failed to delete review'});
-
-        
+        console.error("Error deleting movie:", error);
+        res
+          .status(404)
+          .send({ success: false, message: "Failed to delete review" });
       }
     });
 
-    
+   
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
