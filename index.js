@@ -1,12 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 // const jwt = require('jsonwebtoken');
 // const cookieParser = require('cookie-parser');
 const app = express();
 require("dotenv").config();
 
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+
 
 // Td0wO6ICWQx3deDR
 // service_hunter
@@ -36,9 +37,8 @@ async function run() {
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
 
-    const serviceCollection = client
-      .db("serviceReviews")
-      .collection("services");
+    const serviceCollection = client.db("serviceReviews").collection("services");
+    const reviewsCollection = client.db("serviceReviews").collection("reviews");
 
     app.get("/services", async (req, res) => {
       const cursor = serviceCollection.find();
@@ -48,17 +48,22 @@ async function run() {
 
     app.get("/services/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId(id)}
-      const result = await serviceCollection.findOne(query);   
+      const query = { _id: new ObjectId(id) };
+      const result = await serviceCollection.findOne(query);
+      res.send(result);
+    });
+    app.get("/reviews", async (req, res) => {
+      const cursor = reviewsCollection.find();
+      const result = await cursor.toArray();
       res.send(result);
     });
 
-    // app.get("/services/:id", async (req, res) => {
-    //   const id = req.params.id;
-    //   const query = { _id: new ObjectId(id) };
-    //   const result = await serviceCollection.findOne(query);
-    //   res.send(result);
-    // });
+    app.post("/reviews", async (req, res) =>{
+      const {_id, ...review} = req.body;
+      const result = await reviewsCollection.insertOne(review);
+      res.send(result);
+    });
+    
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
