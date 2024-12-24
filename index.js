@@ -41,9 +41,22 @@ async function run() {
       .collection("services");
     const reviewsCollection = client.db("serviceReviews").collection("reviews");
 
+    // app.get("/services", async (req, res) => {
+    //   const cursor = serviceCollection.find();
+    //   const result = await cursor.toArray();
+    //   res.send(result);
+    // });
     app.get("/services", async (req, res) => {
-      const cursor = serviceCollection.find();
-      const result = await cursor.toArray();
+      const { userEmail } = req.query;
+      let result;
+      
+      if (userEmail) {
+        const query = {userEmail};
+        result = await serviceCollection.find(query).toArray();
+      } else{
+        result = await serviceCollection.find().toArray();
+      }
+
       res.send(result);
     });
 
