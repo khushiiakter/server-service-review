@@ -1,19 +1,39 @@
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-// const jwt = require('jsonwebtoken');
-// const cookieParser = require('cookie-parser');
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const app = express();
 require("dotenv").config();
 
 const port = process.env.PORT || 5000;
 
-// Td0wO6ICWQx3deDR
-// service_hunter
-
 // middle ware
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    credentials: true,
+  })
+);
 app.use(express.json());
+app.use(cookieParser());
+
+const verifyToken = (req, res, next) => {
+  const token = req.cookies?.token;
+
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+
+  // verify the token
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
+    if (error) {
+      return res.status(401).send({ message: "unauthorized access" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7xkdi.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -41,15 +61,48 @@ async function run() {
       .collection("services");
     const reviewsCollection = client.db("serviceReviews").collection("reviews");
 
-    app.get("/services", async (req, res) => {
-      const { userEmail } = req.query;
-      let result;
+    // auth related APIs
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "10h",
+      });
 
-      if (userEmail) {
-        const query = { userEmail };
+      res
+        .cookie("token", token, {
+          httpOnly: true,
+          secure: false,
+          // secure: process.env.NODE_ENV === 'production',
+          // sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
+        })
+        .send({ success: true });
+    });
+    app.post("/logout", (req, res) => {
+      res
+        .clearCookie("token", {
+          httpOnly: true,
+          secure: false,
+          // secure: process.env.NODE_ENV === 'production',
+          // sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
+        })
+        .send({ success: true });
+    });
+
+    app.get("/services",  async (req, res) => {
+      const email = req.query.email;
+
+      let result;
+     
+
+      if (email) {
+        const query = { userEmail: email };
         result = await serviceCollection.find(query).toArray();
       } else {
         result = await serviceCollection.find().toArray();
+      }
+      console.log(req.cookies?.token);
+      if (req.user?.email !== req.query.email) {
+        return res.status(403).send({ message: "forbidden access" });
       }
 
       res.send(result);
@@ -101,13 +154,14 @@ async function run() {
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
     });
-    
 
-    
-    app.put("/services/:id", async (req, res) =>{
-      const{id} = req.params;
+    app.put("/services/:id", async (req, res) => {
+      const { id } = req.params;
       const updatedService = req.body;
-      const result = await serviceCollection.updateOne({_id: new ObjectId(id)}, { $set: updatedService});
+      const result = await serviceCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updatedService }
+      );
 
       if (result.modifiedCount === 0) {
         return res.status(404).send({
@@ -116,9 +170,7 @@ async function run() {
         });
       }
       res.send({ success: true, message: "Review updated successfully." });
-
-    })
-    
+    });
 
     app.put("/reviews/:id", async (req, res) => {
       const { id } = req.params;
