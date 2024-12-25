@@ -41,19 +41,14 @@ async function run() {
       .collection("services");
     const reviewsCollection = client.db("serviceReviews").collection("reviews");
 
-    // app.get("/services", async (req, res) => {
-    //   const cursor = serviceCollection.find();
-    //   const result = await cursor.toArray();
-    //   res.send(result);
-    // });
     app.get("/services", async (req, res) => {
       const { userEmail } = req.query;
       let result;
-      
+
       if (userEmail) {
-        const query = {userEmail};
+        const query = { userEmail };
         result = await serviceCollection.find(query).toArray();
-      } else{
+      } else {
         result = await serviceCollection.find().toArray();
       }
 
@@ -93,10 +88,10 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
-    
+
     app.post("/services", async (req, res) => {
       const newService = req.body;
-     
+
       const result = await serviceCollection.insertOne(newService);
       res.send(result);
     });
@@ -106,6 +101,24 @@ async function run() {
       const result = await reviewsCollection.insertOne(review);
       res.send(result);
     });
+    
+
+    
+    app.put("/services/:id", async (req, res) =>{
+      const{id} = req.params;
+      const updatedService = req.body;
+      const result = await serviceCollection.updateOne({_id: new ObjectId(id)}, { $set: updatedService});
+
+      if (result.modifiedCount === 0) {
+        return res.status(404).send({
+          success: false,
+          message: "Review not found or no changes made.",
+        });
+      }
+      res.send({ success: true, message: "Review updated successfully." });
+
+    })
+    
 
     app.put("/reviews/:id", async (req, res) => {
       const { id } = req.params;
@@ -116,7 +129,7 @@ async function run() {
           message: "Review text and rating are required.",
         });
       }
-  
+
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
@@ -124,9 +137,9 @@ async function run() {
           rating,
         },
       };
-  
+
       const result = await reviewsCollection.updateOne(filter, updateDoc);
-  
+
       if (result.modifiedCount === 0) {
         return res.status(404).send({
           success: false,
@@ -134,10 +147,34 @@ async function run() {
         });
       }
       res.send({ success: true, message: "Review updated successfully." });
-
-  
     });
 
+    app.delete("/services/:id", async (req, res) => {
+      const id = req.params.id;
+      try {
+        const result = await serviceCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+
+        if (result.deletedCount > 0) {
+          res.send({
+            success: true,
+            message: "Service deleted successfully",
+
+            deletedService: result,
+          });
+        } else {
+          res
+            .status(404)
+            .send({ success: false, message: "Service not found" });
+        }
+      } catch (error) {
+        console.error("Error deleting Service:", error);
+        res
+          .status(404)
+          .send({ success: false, message: "Failed to delete service" });
+      }
+    });
     app.delete("/reviews/:id", async (req, res) => {
       const id = req.params.id;
 
@@ -163,8 +200,6 @@ async function run() {
           .send({ success: false, message: "Failed to delete review" });
       }
     });
-
-   
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
