@@ -11,7 +11,11 @@ const port = process.env.PORT || 5000;
 // middle ware
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: [
+      "http://localhost:5173",
+      "https://assignment-11-eb26e.web.app",
+      "https://assignment-11-eb26e.firebaseapp.com",
+    ],
     credentials: true,
   })
 );
@@ -49,13 +53,14 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
-
+    
+    const userCollection = client.db("serviceReviews").collection("users");
     const serviceCollection = client
       .db("serviceReviews")
       .collection("services");
@@ -71,38 +76,34 @@ async function run() {
       res
         .cookie("token", token, {
           httpOnly: true,
-          secure: false,
-          // secure: process.env.NODE_ENV === 'production',
-          // sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
+
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: true });
     });
+
     app.post("/logout", (req, res) => {
       res
         .clearCookie("token", {
           httpOnly: true,
-          secure: false,
-          // secure: process.env.NODE_ENV === 'production',
-          // sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict'
+
+          secure: process.env.NODE_ENV === "production",
+          sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         .send({ success: true });
     });
 
-    app.get("/services",  async (req, res) => {
+    app.get("/services", async (req, res) => {
       const email = req.query.email;
 
       let result;
-     
 
       if (email) {
         const query = { userEmail: email };
         result = await serviceCollection.find(query).toArray();
       } else {
         result = await serviceCollection.find().toArray();
-      }
-      console.log(req.cookies?.token);
-      if (req.user?.email !== req.query.email) {
-        return res.status(403).send({ message: "forbidden access" });
       }
 
       res.send(result);
@@ -251,6 +252,22 @@ async function run() {
           .status(404)
           .send({ success: false, message: "Failed to delete review" });
       }
+    });
+
+    // Count Routes for Users, Reviews, and Services
+    app.get("/count/users", async (req, res) => {
+      const totalUsers = await userCollection.countDocuments();
+      res.send({ totalUsers });
+    });
+
+    app.get("/count/reviews", async (req, res) => {
+      const totalReviews = await reviewsCollection.countDocuments();
+      res.send({ totalReviews });
+    });
+
+    app.get("/count/services", async (req, res) => {
+      const totalServices = await serviceCollection.countDocuments();
+      res.send({ totalServices });
     });
   } finally {
     // Ensures that the client will close when you finish/error
