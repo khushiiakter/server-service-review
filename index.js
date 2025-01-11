@@ -254,7 +254,7 @@ async function run() {
       }
     });
 
-    // Count Routes for Users, Reviews, and Services
+    // Count Routes for Users, Reviews, and Services of the website...
     app.get("/count/users", async (req, res) => {
       const totalUsers = await userCollection.countDocuments();
       res.send({ totalUsers });
